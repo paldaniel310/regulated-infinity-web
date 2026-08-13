@@ -4,15 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PulseRail support · Regulated Infinity Labs</title>
-<meta name="description" content="Support information for PulseRail during release-candidate development.">
+<meta name="description" content="Support and diagnostic guidance for PulseRail during release-candidate development.">
+<meta name="robots" content="index,follow">
 <link rel="canonical" href="https://regulatedinfinity.com/pulserail/support/">
 <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
-<header class="site-header"><div class="shell header-inner"><a class="brand" href="/">Regulated Infinity Labs</a><nav class="nav" aria-label="PulseRail navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/privacy/">Privacy</a><a href="/pulserail/support/" aria-current="page">Support</a></nav></div></header>
-<main id="main"><section class="page-hero"><div class="shell prose"><p class="eyebrow">PulseRail · support</p><h1>Support information</h1><div class="callout"><strong>Release-candidate status:</strong> PulseRail is currently under owner testing and is not yet generally available.</div><p>A permanent public support address and production support process will be published here before general distribution.</p></div></section></main>
-<footer class="site-footer"><div class="shell footer-inner"><span>© 2026 Regulated Infinity Labs</span><a href="/pulserail/">PulseRail</a></div></footer>
+<header class="site-header"><div class="shell header-inner"><a class="brand" href="/">Regulated Infinity Labs</a><nav class="nav" aria-label="PulseRail navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/privacy/">Privacy</a><a href="/pulserail/support/" aria-current="page">Support</a><a href="/pulserail/terms/">Terms</a></nav></div></header>
+<main id="main"><section class="page-hero"><div class="shell prose"><p class="eyebrow">PulseRail · support</p><h1>Support and diagnostics</h1><div class="callout"><p><strong>Release-candidate status:</strong> PulseRail 1.0.0-rc4 is currently under owner testing and is not yet generally available. A permanent public support channel will be published before broader distribution.</p></div>
+<h2>Before reporting a problem</h2>
+<ol><li>Confirm the exact PulseRail version shown in the application.</li><li>Note the screen or workflow stage where the problem occurred.</li><li>If a build was involved, keep the build or run identity shown by PulseRail.</li><li>Use the application's status refresh or recovery path when one is offered.</li><li>Remove confidential credentials and unrelated personal information from any diagnostic material.</li></ol>
+<h2>Useful diagnostic information</h2>
+<p>A useful report normally includes the app version, Android version, device model, the visible PulseRail state or error category, approximate time of occurrence and the relevant build or run identity when available.</p>
+<h2>Build and recovery problems</h2>
+<p>PulseRail is designed to preserve build transaction identity across network loss and process death. When an operation appears interrupted, prefer the product's recovery or refresh action over starting replacement work manually.</p>
+<h2>Signing problems</h2>
+<p>If PulseRail reports that the required signer is missing or incompatible, treat that as an application-identity problem rather than a generic build failure. The intended recovery path is to restore the correct update identity, not silently substitute another one.</p>
+<h2>Wear OS installation problems</h2>
+<p>The watch installation flow checks the selected watch and the verified artifact before installation. If either changes, return to the readiness flow and let PulseRail re-check the operation.</p>
+<h2>Accessibility issues</h2>
+<p>Accessibility defects are product defects. A useful report identifies the assistive technology in use, the affected screen or control, what was announced or exposed, and what the user expected to happen. See the site's <a href="/accessibility/">Accessibility page</a>.</p>
+<h2>Public support channel</h2>
+<p>The production support address and reporting process will be published here before PulseRail is offered for general public distribution.</p>
+<p class="meta">Last updated: 13 August 2026.</p>
+</div></section></main>
+<footer class="site-footer"><div class="shell footer-inner"><span>© 2026 Regulated Infinity Labs</span><nav class="footer-links" aria-label="Footer navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/privacy/">Privacy</a><a href="/pulserail/terms/">Terms</a><a href="/accessibility/">Accessibility</a></nav></div></footer>
 </body>
 </html>

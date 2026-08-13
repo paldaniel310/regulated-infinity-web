@@ -4,15 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PulseRail privacy · Regulated Infinity Labs</title>
-<meta name="description" content="Pre-release privacy information for PulseRail.">
+<meta name="description" content="Pre-release privacy information for PulseRail 1.0.0-rc4.">
+<meta name="robots" content="index,follow">
 <link rel="canonical" href="https://regulatedinfinity.com/pulserail/privacy/">
 <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
-<header class="site-header"><div class="shell header-inner"><a class="brand" href="/">Regulated Infinity Labs</a><nav class="nav" aria-label="PulseRail navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/privacy/" aria-current="page">Privacy</a><a href="/pulserail/support/">Support</a></nav></div></header>
-<main id="main"><section class="page-hero"><div class="shell prose"><p class="eyebrow">PulseRail · privacy</p><h1>Pre-release privacy information</h1><div class="callout"><strong>Draft status:</strong> PulseRail is still in release-candidate development. A final public privacy notice will replace this page before general public distribution.</div><p>The final notice will document the production services used by PulseRail, the categories and purposes of data processing, retention, security measures, user rights and controller contact details.</p><p>Last updated: 13 August 2026.</p></div></section></main>
-<footer class="site-footer"><div class="shell footer-inner"><span>© 2026 Regulated Infinity Labs</span><a href="/pulserail/">PulseRail</a></div></footer>
+<header class="site-header"><div class="shell header-inner"><a class="brand" href="/">Regulated Infinity Labs</a><nav class="nav" aria-label="PulseRail navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/privacy/" aria-current="page">Privacy</a><a href="/pulserail/support/">Support</a><a href="/pulserail/terms/">Terms</a></nav></div></header>
+<main id="main"><section class="page-hero"><div class="shell prose"><p class="eyebrow">PulseRail · privacy</p><h1>Pre-release privacy information</h1><div class="callout"><p><strong>Draft status:</strong> PulseRail 1.0.0-rc4 is still in release-candidate development and owner testing. This page describes the current product design at a high level and is not yet the final production privacy notice.</p></div>
+<p>PulseRail is designed to process only the information needed to import, build, verify, recover and deliver the Android project selected by the user. Important product state is kept explicit so that interrupted or ambiguous operations can be reconciled rather than repeated blindly.</p>
+<h2>Information handled by PulseRail</h2>
+<ul><li><strong>Project content and project metadata:</strong> the Android project selected by the user, source identity, package information and build configuration needed to perform the requested workflow.</li><li><strong>Build and artifact identity:</strong> repository and revision identifiers, workflow run and attempt information, package and version identity, artifact identifiers, cryptographic hashes and signing-certificate identity used for verification.</li><li><strong>Connection and recovery state:</strong> the minimum state needed to connect to supported external services, recover interrupted work and prevent duplicate operations.</li><li><strong>Device state:</strong> when Wear OS installation is used, bounded information about the selected authenticated watch and installation readiness. The product design avoids using raw device identifiers as durable audit identifiers where a pseudonymous representation is sufficient.</li><li><strong>Local settings and diagnostics:</strong> product configuration, transaction state and bounded diagnostic records needed for support, recovery and verification.</li></ul>
+<h2>External services</h2>
+<p>PulseRail uses GitHub as the build-workspace and workflow platform. The RC4 target is browser-based GitHub App onboarding for normal use. Optional signing recovery is designed to use the exact Google account explicitly selected by the user and the application's private Google Drive application-data space.</p>
+<p>The final production notice will identify the production service providers, processing purposes, legal bases where applicable, international-transfer safeguards where applicable and retention rules after those production integrations are finalized.</p>
+<h2>Credentials and secrets</h2>
+<p>The Android client is designed not to embed service private keys or client secrets. Sensitive authentication material is not intended to become project content, build artifacts or ordinary diagnostic output. The product also separates project signing identity from the application's own build identity.</p>
+<h2>Retention and deletion</h2>
+<p>Local project, transaction and diagnostic state is intended to remain under explicit product controls and to be removable through the relevant cleanup or project-removal actions. GitHub build history and workspace retention are governed by the product's bounded cleanup behavior and by GitHub account settings. Final production retention periods will be stated before general distribution.</p>
+<h2>Wear OS privacy boundary</h2>
+<p>The Wear OS installation feature is intentionally scoped to a verified PulseRail artifact and the watch selected for that operation. It is not designed as a general remote device-management or package-inventory tool.</p>
+<h2>Your choices</h2>
+<p>Optional integrations are intended to require explicit user action. Signing recovery is account-first, and the selected account is part of the recovery context. Installation and repair operations that affect important identity or project state require explicit user review rather than being silently inferred.</p>
+<h2>Before general release</h2>
+<p>The final privacy notice will add the controller identity and contact channel, complete provider list, purposes and legal bases of processing, retention periods, data-subject rights and any jurisdiction-specific disclosures required for the production release.</p>
+<p class="meta">Last updated: 13 August 2026.</p>
+</div></section></main>
+<footer class="site-footer"><div class="shell footer-inner"><span>© 2026 Regulated Infinity Labs</span><nav class="footer-links" aria-label="Footer navigation"><a href="/pulserail/">PulseRail</a><a href="/pulserail/support/">Support</a><a href="/pulserail/terms/">Terms</a><a href="/privacy/">Website privacy</a></nav></div></footer>
 </body>
 </html>

@@ -4,6 +4,7 @@ deploy-workflow.yml
 public/
 .github/
 .git/
+worker/
 node_modules/
 package.json
 package-lock.json

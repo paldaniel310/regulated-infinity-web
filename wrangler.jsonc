@@ -4,6 +4,8 @@
   "compatibility_date": "2026-08-13",
   "workers_dev": true,
   "assets": {
-    "directory": "./"
+    "directory": "./",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
   }
 }

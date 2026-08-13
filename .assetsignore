@@ -1,0 +1,5 @@
+README.md
+wrangler.jsonc
+deploy-workflow.yml
+public/
+.github/

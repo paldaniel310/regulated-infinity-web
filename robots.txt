@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://regulatedinfinity.com/sitemap.xml
+# Pre-publication preview: indexing is disabled site-wide with X-Robots-Tag.

@@ -1,33 +1,43 @@
 # regulated-infinity-web
 
-Official static website for **Regulated Infinity Labs**, intended for deployment at `https://regulatedinfinity.com/` on Cloudflare Workers Static Assets.
+Official static website for **Regulated Infinity Labs**, deployed at `https://regulatedinfinity.com/` using Cloudflare Workers Static Assets.
 
-## Structure
+## Public structure
 
 - `/` — Regulated Infinity Labs home page
 - `/pulserail/` — PulseRail product overview
-- `/pulserail/privacy/` — pre-release privacy information
-- `/pulserail/support/` — support landing page
+- `/pulserail/privacy/` — PulseRail pre-release privacy information
+- `/pulserail/support/` — PulseRail support and diagnostic guidance
+- `/pulserail/terms/` — provisional release-status page reserved for final distribution information
+- `/privacy/` — website data-use information
+- `/accessibility/` — accessibility statement
+- `/404.html` — custom not-found page
 - `/assets/logo.svg` — vectorized full Regulated Infinity Labs logo
 - `/assets/mark.svg` — vectorized symbol / favicon
-- `/_headers` — static security headers
+- `/_headers` — static response security headers
 
 ## Deployment
 
-The site has no application build step and no runtime dependencies. Production deployment is handled by GitHub Actions using Cloudflare Wrangler and the repository's `wrangler.jsonc` configuration.
+The site has no application build step and no browser-side runtime dependency. Production deployment is handled by GitHub Actions using Cloudflare Wrangler and `wrangler.jsonc`.
 
 - Production branch: `main`
-- GitHub Actions workflow: `.github/workflows/deploy.yml`
+- Workflow: `.github/workflows/deploy.yml`
 - Cloudflare target: Workers Static Assets
-- Wrangler asset directory: repository root
+- Production domain: `regulatedinfinity.com`
+- Preview/fallback domain: `regulated-infinity-web.pdpushmail.workers.dev`
+- Static asset directory: repository root
+- HTML routing: automatic trailing-slash handling
+- Missing pages: custom `404.html`
 
 Required GitHub Actions repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-After the first successful deployment, `regulatedinfinity.com` can be attached as the custom domain in Cloudflare.
+## Product status
 
-## Status
+Website copy is currently aligned to PulseRail `1.0.0-rc4`, which remains under active release-candidate development and owner testing. Privacy, support and release-status copy is deliberately marked as pre-release where production integration or final distribution details are not yet fixed.
 
-PulseRail privacy and support pages are intentionally marked as pre-release. Final production contact details and privacy disclosures must replace the provisional text before general public distribution.
+## Accessibility and privacy
+
+The public site uses semantic HTML, keyboard-visible focus, a skip link, responsive CSS and reduced-motion handling. It does not depend on client-side JavaScript. The site source currently contains no advertising or analytics scripts.

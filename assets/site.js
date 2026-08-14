@@ -3,7 +3,14 @@
   const localePaths = new Set(['de', 'es', 'fr', 'hu', 'pt-br', 'ru', 'zh-cn']);
   const languageNames = { en:'English', de:'Deutsch', es:'Español', fr:'Français', hu:'Magyar', 'pt-br':'Português (Brasil)', ru:'Русский', 'zh-cn':'简体中文' };
   const ui = {
-    en:{language:'Language',dark:'Dark',light:'Light'}, de:{language:'Sprache',dark:'Dunkel',light:'Hell'}, es:{language:'Idioma',dark:'Oscuro',light:'Claro'}, fr:{language:'Langue',dark:'Sombre',light:'Clair'}, hu:{language:'Nyelv',dark:'Sötét',light:'Világos'}, 'pt-br':{language:'Idioma',dark:'Escuro',light:'Claro'}, ru:{language:'Язык',dark:'Тёмная',light:'Светлая'}, 'zh-cn':{language:'语言',dark:'深色',light:'浅色'}
+    en:{language:'Language',dark:'Dark',light:'Light',reader:'Reader view',standard:'Standard view'},
+    de:{language:'Sprache',dark:'Dunkel',light:'Hell',reader:'Lesefreundlich',standard:'Standardansicht'},
+    es:{language:'Idioma',dark:'Oscuro',light:'Claro',reader:'Vista de lectura',standard:'Vista estándar'},
+    fr:{language:'Langue',dark:'Sombre',light:'Clair',reader:'Mode lecture',standard:'Vue standard'},
+    hu:{language:'Nyelv',dark:'Sötét',light:'Világos',reader:'Olvasóbarát',standard:'Normál nézet'},
+    'pt-br':{language:'Idioma',dark:'Escuro',light:'Claro',reader:'Leitura fácil',standard:'Visual padrão'},
+    ru:{language:'Язык',dark:'Тёмная',light:'Светлая',reader:'Для чтения',standard:'Обычный вид'},
+    'zh-cn':{language:'语言',dark:'深色',light:'浅色',reader:'阅读模式',standard:'标准视图'}
   };
 
   const documentLocale = () => {
@@ -57,18 +64,33 @@
     document.body.prepend(bar);
   }
 
+  const tools = document.querySelector('.header-tools') || document.querySelector('.preview-strip .shell');
+  if (tools && !document.querySelector('[data-reading-toggle]')) {
+    const readerButton = document.createElement('button');
+    readerButton.type = 'button';
+    readerButton.className = 'reading-toggle';
+    readerButton.dataset.readingToggle = '';
+    readerButton.dataset.readerLabel = text.reader;
+    readerButton.dataset.standardLabel = text.standard;
+    readerButton.setAttribute('aria-pressed', 'false');
+    readerButton.innerHTML = '<span class="reading-mark" aria-hidden="true">Aa</span><span data-reading-label></span>';
+    tools.append(readerButton);
+  }
+
   const themeButton = document.querySelector('[data-theme-toggle]');
+  const readingButton = document.querySelector('[data-reading-toggle]');
   const picker = document.querySelector('[data-language-picker]');
   const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-  const readTheme = () => {
-    try { return localStorage.getItem('ril-theme'); } catch (_) { return null; }
+  const storageGet = (key) => {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
   };
-  const saveTheme = (theme) => {
-    try { localStorage.setItem('ril-theme', theme); } catch (_) { /* preference remains valid for this page */ }
+  const storageSet = (key, value) => {
+    try { localStorage.setItem(key, value); } catch (_) { /* preference remains valid for this page */ }
   };
+
   const preferredTheme = () => {
-    const saved = readTheme();
+    const saved = storageGet('ril-theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return themeMedia && themeMedia.matches ? 'dark' : 'light';
   };
@@ -102,15 +124,33 @@
     themeButton.setAttribute('aria-label', actionLabel || (dark ? text.light : text.dark));
   };
 
+  const applyReading = (mode) => {
+    const friendly = mode === 'friendly';
+    root.dataset.reading = friendly ? 'friendly' : 'standard';
+    if (!readingButton) return;
+    readingButton.setAttribute('aria-pressed', String(friendly));
+    const actionLabel = friendly ? readingButton.dataset.standardLabel : readingButton.dataset.readerLabel;
+    const labelNode = readingButton.querySelector('[data-reading-label]');
+    if (labelNode) labelNode.textContent = actionLabel || (friendly ? text.standard : text.reader);
+    readingButton.setAttribute('aria-label', actionLabel || (friendly ? text.standard : text.reader));
+  };
+
   applyTheme(preferredTheme());
+  applyReading(storageGet('ril-reading') === 'friendly' ? 'friendly' : 'standard');
+
   if (themeButton) themeButton.addEventListener('click', () => {
     const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    saveTheme(next);
+    storageSet('ril-theme', next);
     applyTheme(next);
   });
-  if (themeMedia && !readTheme()) {
+  if (themeMedia && !storageGet('ril-theme')) {
     themeMedia.addEventListener('change', (event) => applyTheme(event.matches ? 'dark' : 'light'));
   }
+  if (readingButton) readingButton.addEventListener('click', () => {
+    const next = root.dataset.reading === 'friendly' ? 'standard' : 'friendly';
+    storageSet('ril-reading', next);
+    applyReading(next);
+  });
 
   const stripLocalePrefix = (pathname) => {
     const parts = pathname.split('/').filter(Boolean);

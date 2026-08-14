@@ -22,7 +22,7 @@ The site remains directly reachable but is in **pre-publication preview** mode w
 
 ## Deployment
 
-Production deploys from `main` through `.github/workflows/deploy.yml` using Cloudflare Wrangler.
+Production deploys automatically from `main` through `.github/workflows/deploy.yml` using Cloudflare Wrangler.
 
 - Worker: `regulated-infinity-web`
 - Production: `regulatedinfinity.com`

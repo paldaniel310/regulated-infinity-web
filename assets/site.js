@@ -57,31 +57,60 @@
     document.body.prepend(bar);
   }
 
-  let themeButton = document.querySelector('[data-theme-toggle]');
-  let picker = document.querySelector('[data-language-picker]');
+  const themeButton = document.querySelector('[data-theme-toggle]');
+  const picker = document.querySelector('[data-language-picker]');
+  const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
+  const readTheme = () => {
+    try { return localStorage.getItem('ril-theme'); } catch (_) { return null; }
+  };
+  const saveTheme = (theme) => {
+    try { localStorage.setItem('ril-theme', theme); } catch (_) { /* preference remains valid for this page */ }
+  };
   const preferredTheme = () => {
-    const saved = localStorage.getItem('ril-theme');
+    const saved = readTheme();
     if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return themeMedia && themeMedia.matches ? 'dark' : 'light';
+  };
+
+  const syncThemeAssets = (theme) => {
+    const dark = theme === 'dark';
+    document.querySelectorAll('img.hero-logo').forEach((img) => {
+      const next = dark ? '/assets/logo-dark.svg' : '/assets/logo.svg';
+      if (img.getAttribute('src') !== next) img.setAttribute('src', next);
+    });
+    const icon = document.querySelector('link[rel~="icon"]');
+    if (icon) icon.setAttribute('href', dark ? '/assets/mark-dark.svg' : '/assets/mark.svg');
+    let themeColor = document.querySelector('meta[name="theme-color"]');
+    if (!themeColor) {
+      themeColor = document.createElement('meta');
+      themeColor.name = 'theme-color';
+      document.head.append(themeColor);
+    }
+    themeColor.content = dark ? '#101112' : '#f4f4f0';
   };
 
   const applyTheme = (theme) => {
     root.dataset.theme = theme;
+    syncThemeAssets(theme);
     if (!themeButton) return;
     const dark = theme === 'dark';
     themeButton.setAttribute('aria-pressed', String(dark));
-    const label = dark ? themeButton.dataset.lightLabel : themeButton.dataset.darkLabel;
-    const node = themeButton.querySelector('[data-theme-label]');
-    if (node) node.textContent = label || (dark ? text.light : text.dark);
+    const actionLabel = dark ? themeButton.dataset.lightLabel : themeButton.dataset.darkLabel;
+    const labelNode = themeButton.querySelector('[data-theme-label]');
+    if (labelNode) labelNode.textContent = actionLabel || (dark ? text.light : text.dark);
+    themeButton.setAttribute('aria-label', actionLabel || (dark ? text.light : text.dark));
   };
 
   applyTheme(preferredTheme());
   if (themeButton) themeButton.addEventListener('click', () => {
     const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('ril-theme', next);
+    saveTheme(next);
     applyTheme(next);
   });
+  if (themeMedia && !readTheme()) {
+    themeMedia.addEventListener('change', (event) => applyTheme(event.matches ? 'dark' : 'light'));
+  }
 
   const stripLocalePrefix = (pathname) => {
     const parts = pathname.split('/').filter(Boolean);

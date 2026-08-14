@@ -14,7 +14,17 @@ The visitor's explicit language choice always wins and is stored in the first-pa
 
 ## Appearance
 
-`assets/site.js` provides language and two-state light/dark controls. A manual theme choice is saved locally as `ril-theme`; before a manual choice, the operating-system color preference is used. CSS also respects reduced-motion and increased-contrast preferences where supported.
+`assets/site.js` provides language, two-state light/dark, and reader-friendly controls. A manual theme choice is saved locally as `ril-theme`; before a manual choice, the operating-system color preference is used. The reader preference is saved locally as `ril-reading`.
+
+The standard editorial presentation uses justified body copy without automatic hyphenation. Reader-friendly mode switches long-form copy to left alignment, increases line height, narrows the reading measure, removes decorative hero treatment, and linearizes multi-column content where useful. CSS also respects reduced-motion and increased-contrast preferences where supported.
+
+The visual direction is deliberately restrained: neutral monochrome surfaces, strong whitespace, precise rules, limited rounding, minimal shadows, compact brand graphics, and selective monospace metadata rather than decorative “tech” effects.
+
+## Public product-claim boundary
+
+Public PulseRail pages describe user-visible capabilities, safety properties, trust boundaries, evidence categories, current limitations and release status. They deliberately do **not** publish the internal decision rules, repair mappings, recovery state machines, protocol contracts, security thresholds, parser precedence, persistence schemas or other implementation details that would turn product documentation into a practical reconstruction guide.
+
+Marketing copy may make the product sound unusual or ambitious, but every factual claim must remain supportable by the private PulseRail repository and must distinguish implemented behavior, release-candidate validation and still-open acceptance work.
 
 ## Pre-publication safety
 
@@ -40,4 +50,4 @@ Website claims are aligned to PulseRail `1.0.0-rc4` / versionCode `113`. PulseRa
 
 ## Privacy and accessibility
 
-The site contains no advertising or marketing-analytics integrations. JavaScript is limited to first-party language/theme controls. The design uses semantic HTML, keyboard-visible focus, skip navigation, responsive layouts, dark mode and reduced-motion handling. The accessibility target is WCAG 2.2 Level AA; no independent certification is claimed yet.
+The site contains no advertising or marketing-analytics integrations. JavaScript is limited to first-party language, theme and reader-presentation controls. The design uses semantic HTML, keyboard-visible focus, skip navigation, responsive layouts, dark mode, reader-friendly mode and reduced-motion handling. The accessibility target is WCAG 2.2 Level AA; no independent certification is claimed yet.

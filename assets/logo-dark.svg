@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1240" role="img" aria-labelledby="title desc">
+  <title id="title">Regulated Infinity Labs</title>
+  <desc id="desc">Dark-theme geometric Regulated Infinity Labs mark with the company name below.</desc>
+  <rect width="960" height="1240" fill="#181a1c"/>
+  <rect x="58" y="58" width="844" height="844" fill="none" stroke="#d9dad7" stroke-width="2"/>
+  <path d="M86 84H194V430C151 445 119 465 86 500Z" fill="#a8aaad"/>
+  <circle cx="300" cy="650" r="208" fill="#f5f5f1"/>
+  <circle cx="340" cy="650" r="116" fill="#181a1c"/>
+  <rect x="402" y="420" width="74" height="460" fill="#181a1c"/>
+  <path d="M435 84H546V690C546 778 503 827 435 855Z" fill="#a8aaad"/>
+  <path d="M566 90H692C817 90 890 185 890 315C890 447 817 540 692 540H566V423H692C754 423 790 380 790 315C790 252 754 208 692 208H566Z" fill="#f5f5f1"/>
+  <path d="M566 505L630 569L889 830V878H812L566 632Z" fill="#a8aaad"/>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="400">
+    <text x="60" y="1005" letter-spacing="41"><tspan fill="#f5f5f1">R</tspan><tspan fill="#a8aaad">EGULATED</tspan></text>
+    <text x="60" y="1110" letter-spacing="49"><tspan fill="#f5f5f1">I</tspan><tspan fill="#a8aaad">NFINITY</tspan></text>
+    <text x="60" y="1215" letter-spacing="103"><tspan fill="#f5f5f1">L</tspan><tspan fill="#a8aaad">ABS</tspan></text>
+  </g>
+</svg>

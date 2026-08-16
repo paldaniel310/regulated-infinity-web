@@ -1,4 +1,4 @@
-name: Cloudflare Durable Objects incident audit
+name: Cloudflare site traffic audit
 
 on:
   push:
@@ -14,47 +14,56 @@ jobs:
     timeout-minutes: 4
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Classify broker traffic read-only
+      - name: Query site traffic and cache metrics read-only
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import datetime, json, os, urllib.error, urllib.parse, urllib.request
-          token=os.environ['CLOUDFLARE_API_TOKEN']; account=os.environ['CLOUDFLARE_ACCOUNT_ID']
+          import json, os, urllib.error, urllib.parse, urllib.request
+          token=os.environ['CLOUDFLARE_API_TOKEN']
           headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'}
-          root='https://api.cloudflare.com/client/v4/accounts/'+urllib.parse.quote(account,safe='')
-          def post(path,body):
-              req=urllib.request.Request(root+path,data=json.dumps(body).encode(),headers=headers,method='POST')
+          api='https://api.cloudflare.com/client/v4'
+          def get(url):
+              req=urllib.request.Request(url,headers=headers,method='GET')
               try:
                   with urllib.request.urlopen(req,timeout=30) as r: return r.status,json.load(r)
               except urllib.error.HTTPError as e:
                   try: return e.code,json.load(e)
-                  except Exception: return e.code,{'errors':[{'message':'HTTP error'}]}
-
-          start=int(datetime.datetime(2026,8,15,17,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
-          end=int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
-          timeframe={'from':start,'to':end}
-          service=[{'key':'$metadata.service','operation':'eq','type':'string','value':'pulserail-github-app-broker'}]
-          webhook=service+[{'key':'$metadata.trigger','operation':'eq','type':'string','value':'POST /v1/github-app/webhook'}]
-
-          def calc(label,key,filters):
-              body={'queryId':'pulserail-'+label,'timeframe':timeframe,'view':'calculations','limit':100,'dry':True,'ignoreSeries':True,
-                    'parameters':{'datasets':[],'calculations':[{'operator':'count','alias':'n'}],
-                                  'groupBys':[{'type':'string','value':key}], 'filters':filters,
-                                  'orderBy':{'value':'n','order':'desc'}}}
-              st,data=post('/workers/observability/telemetry/query',body)
-              print(label.upper()+'_STATUS='+str(st))
-              if st==200:
-                  print(label.upper()+'='+json.dumps((data.get('result') or {}).get('calculations') or [],sort_keys=True,separators=(',',':'))[:15000])
-              else:
-                  print(label.upper()+'_ERROR='+json.dumps(data.get('errors') or [],separators=(',',':'))[:1000])
-
+                  except Exception: return e.code,{'success':False,'errors':[{'message':'HTTP error'}]}
           print('AUDIT_MODE=read-only-sanitized')
-          calc('webhook_user_agent','$workers.event.request.headers.user-agent',webhook)
-          calc('webhook_event','$workers.event.request.headers.x-github-event',webhook)
-          calc('webhook_verified_bot','$workers.event.request.cf.verifiedBotCategory',webhook)
-          calc('broker_status','$metadata.statusCode',service)
-          calc('scan_user_agent','$workers.event.request.headers.user-agent',service+[{'key':'$metadata.trigger','operation':'neq','type':'string','value':'POST /v1/github-app/webhook'}])
+          st,z=get(api+'/zones?name='+urllib.parse.quote('regulatedinfinity.com'))
+          print('ZONE_LOOKUP_STATUS='+str(st))
+          zones=(z.get('result') or []) if isinstance(z,dict) else []
+          if st!=200 or not zones:
+              print('ZONE_LOOKUP_ERRORS='+json.dumps((z.get('errors') or []) if isinstance(z,dict) else [],separators=(',',':'))[:1000])
+              raise SystemExit(0)
+          zone=str(zones[0].get('id') or '')
+          if not zone: raise SystemExit(0)
+          since='2026-08-14T06:30:00Z'
+          until='2026-08-16T14:30:00Z'
+          url=(api+'/zones/'+urllib.parse.quote(zone,safe='')+'/analytics/dashboard?'+
+               urllib.parse.urlencode({'since':since,'until':until,'continuous':'false'}))
+          st,data=get(url)
+          print('ANALYTICS_STATUS='+str(st))
+          if st!=200 or not isinstance(data,dict) or data.get('success') is not True:
+              print('ANALYTICS_ERRORS='+json.dumps((data.get('errors') or []) if isinstance(data,dict) else [],separators=(',',':'))[:1000])
+              raise SystemExit(0)
+          result=data.get('result') or {}
+          totals=result.get('totals') or {}
+          requests=totals.get('requests') or {}
+          pageviews=totals.get('pageviews') or {}
+          uniques=totals.get('uniques') or {}
+          print('SINCE='+since)
+          print('UNTIL='+until)
+          print('UNIQUE_VISITORS='+str(uniques.get('all')))
+          print('PAGEVIEWS='+str(pageviews.get('all')))
+          print('REQUESTS_ALL='+str(requests.get('all')))
+          print('REQUESTS_CACHED='+str(requests.get('cached')))
+          print('REQUESTS_UNCACHED='+str(requests.get('uncached')))
+          print('THREATS='+str((totals.get('threats') or {}).get('all')))
+          print('CACHE_RATIO=' + (str(round((requests.get('cached') or 0)*100/(requests.get('all') or 1),2))+'%'))
+          # Print only aggregate country/request classifications, not IPs or raw URLs.
+          print('REQUEST_IP_CLASS='+json.dumps(requests.get('ip_class') or {},sort_keys=True,separators=(',',':'))[:4000])
+          print('PAGEVIEW_SEARCH_ENGINE='+json.dumps(pageviews.get('search_engine') or {},sort_keys=True,separators=(',',':'))[:4000])
           PY

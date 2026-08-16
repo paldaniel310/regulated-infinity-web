@@ -16,7 +16,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Inspect broker telemetry read-only
+      - name: Classify broker traffic read-only
         shell: bash
         run: |
           set -euo pipefail
@@ -32,48 +32,29 @@ jobs:
               except urllib.error.HTTPError as e:
                   try: return e.code,json.load(e)
                   except Exception: return e.code,{'errors':[{'message':'HTTP error'}]}
+
           start=int(datetime.datetime(2026,8,15,17,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
           end=int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
           timeframe={'from':start,'to':end}
-          print('AUDIT_MODE=read-only-sanitized')
+          service=[{'key':'$metadata.service','operation':'eq','type':'string','value':'pulserail-github-app-broker'}]
+          webhook=service+[{'key':'$metadata.trigger','operation':'eq','type':'string','value':'POST /v1/github-app/webhook'}]
 
-          st,keys=post('/workers/observability/telemetry/keys',{'datasets':[],'timeframe':timeframe})
-          print('KEYS_STATUS='+str(st))
-          if st==200:
-              rows=keys.get('result') or []
-              selected=[]
-              for x in rows:
-                  if not isinstance(x,dict): continue
-                  k=str(x.get('key') or '')
-                  low=k.lower()
-                  if any(word in low for word in ('service','script','trigger','url','path','method','request','useragent','user_agent','user-agent')):
-                      selected.append({'key':k,'type':x.get('type')})
-              print('RELEVANT_KEYS='+json.dumps(selected[:100],sort_keys=True,separators=(',',':')))
-          else:
-              print('KEYS_ERROR='+json.dumps(keys.get('errors') or [],separators=(',',':'))[:1000])
-
-          def calc(label,group_key,filters=None):
-              body={
-                'queryId':'pulserail-'+label,
-                'timeframe':timeframe,
-                'view':'calculations','limit':100,'dry':True,'ignoreSeries':True,
-                'parameters':{
-                  'datasets':[],
-                  'calculations':[{'operator':'count','alias':'n'}],
-                  'groupBys':[{'type':'string','value':group_key}],
-                  'filters':filters or [],
-                  'orderBy':{'value':'n','order':'desc'}
-                }
-              }
+          def calc(label,key,filters):
+              body={'queryId':'pulserail-'+label,'timeframe':timeframe,'view':'calculations','limit':100,'dry':True,'ignoreSeries':True,
+                    'parameters':{'datasets':[],'calculations':[{'operator':'count','alias':'n'}],
+                                  'groupBys':[{'type':'string','value':key}], 'filters':filters,
+                                  'orderBy':{'value':'n','order':'desc'}}}
               st,data=post('/workers/observability/telemetry/query',body)
               print(label.upper()+'_STATUS='+str(st))
               if st==200:
-                  result=data.get('result') or {}
-                  print(label.upper()+'_CALCULATIONS='+json.dumps(result.get('calculations') or [],sort_keys=True,separators=(',',':'))[:12000])
+                  print(label.upper()+'='+json.dumps((data.get('result') or {}).get('calculations') or [],sort_keys=True,separators=(',',':'))[:15000])
               else:
                   print(label.upper()+'_ERROR='+json.dumps(data.get('errors') or [],separators=(',',':'))[:1000])
 
-          calc('by_service','$metadata.service')
-          broker_filter=[{'key':'$metadata.service','operation':'eq','type':'string','value':'pulserail-github-app-broker'}]
-          calc('broker_by_trigger','$metadata.trigger',broker_filter)
+          print('AUDIT_MODE=read-only-sanitized')
+          calc('webhook_user_agent','$workers.event.request.headers.user-agent',webhook)
+          calc('webhook_event','$workers.event.request.headers.x-github-event',webhook)
+          calc('webhook_verified_bot','$workers.event.request.cf.verifiedBotCategory',webhook)
+          calc('broker_status','$metadata.statusCode',service)
+          calc('scan_user_agent','$workers.event.request.headers.user-agent',service+[{'key':'$metadata.trigger','operation':'neq','type':'string','value':'POST /v1/github-app/webhook'}])
           PY

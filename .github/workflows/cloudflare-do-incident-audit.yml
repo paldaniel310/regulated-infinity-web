@@ -11,17 +11,17 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 4
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Inspect Workers and Durable Objects read-only
+      - name: Inspect broker telemetry read-only
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, urllib.error, urllib.parse, urllib.request
+          import collections, datetime, json, os, urllib.error, urllib.parse, urllib.request
 
           token = os.environ.get('CLOUDFLARE_API_TOKEN', '')
           account = os.environ.get('CLOUDFLARE_ACCOUNT_ID', '')
@@ -30,107 +30,100 @@ jobs:
               raise SystemExit(10)
 
           headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-          base = 'https://api.cloudflare.com/client/v4/accounts/' + urllib.parse.quote(account, safe='')
+          root = 'https://api.cloudflare.com/client/v4/accounts/' + urllib.parse.quote(account, safe='')
 
-          def get(path):
-              req = urllib.request.Request(base + path, headers=headers, method='GET')
+          def call(method, path, body=None):
+              data = None if body is None else json.dumps(body).encode('utf-8')
+              req = urllib.request.Request(root + path, data=data, headers=headers, method=method)
               try:
-                  with urllib.request.urlopen(req, timeout=20) as r:
+                  with urllib.request.urlopen(req, timeout=30) as r:
                       return r.status, json.load(r)
               except urllib.error.HTTPError as e:
-                  try:
-                      data = json.load(e)
-                  except Exception:
-                      data = {'success': False, 'errors': [{'code': e.code, 'message': 'HTTP error'}]}
-                  return e.code, data
+                  try: payload = json.load(e)
+                  except Exception: payload = {'success': False, 'errors': [{'code': e.code, 'message': 'HTTP error'}]}
+                  return e.code, payload
 
-          def safe_errors(data):
-              return '; '.join(str(x.get('code', '?')) + ':' + str(x.get('message', '')) for x in (data.get('errors') or []) if isinstance(x, dict))[:500]
+          def errors(data):
+              return '; '.join(str(x.get('code','?')) + ':' + str(x.get('message','')) for x in (data.get('errors') or []) if isinstance(x,dict))[:700]
 
-          print('AUDIT_MODE=read-only')
+          print('AUDIT_MODE=read-only-sanitized')
+          st, workers = call('GET', '/workers/scripts')
+          scripts = [x for x in (workers.get('result') or []) if isinstance(x,dict)] if st == 200 and workers.get('success') is True else []
+          print('WORKERS=' + ','.join(sorted(str(x.get('id')) for x in scripts if x.get('id'))))
 
-          status, data = get('/workers/scripts')
-          if status != 200 or data.get('success') is not True:
-              print('WORKERS_LIST_STATUS=' + str(status))
-              print('WORKERS_LIST_ERROR=' + safe_errors(data))
-              scripts = []
-          else:
-              scripts = [x for x in (data.get('result') or []) if isinstance(x, dict)]
-              print('WORKER_COUNT=' + str(len(scripts)))
-              for item in scripts:
-                  sid = str(item.get('id') or '')
-                  if sid:
-                      print('WORKER=' + sid)
+          st, ns = call('GET', '/workers/durable_objects/namespaces?per_page=1000')
+          namespaces = [x for x in (ns.get('result') or []) if isinstance(x,dict)] if st == 200 and ns.get('success') is True else []
+          for x in namespaces:
+              print('DO=' + json.dumps({'name':x.get('name'),'class':x.get('class'),'script':x.get('script'),'use_sqlite':x.get('use_sqlite')},sort_keys=True,separators=(',',':')))
 
-          status, data = get('/workers/durable_objects/namespaces?per_page=1000')
-          namespaces = []
-          if status != 200 or data.get('success') is not True:
-              print('DO_NAMESPACE_LIST_STATUS=' + str(status))
-              print('DO_NAMESPACE_LIST_ERROR=' + safe_errors(data))
-          else:
-              namespaces = [x for x in (data.get('result') or []) if isinstance(x, dict)]
-              print('DO_NAMESPACE_COUNT=' + str(len(namespaces)))
-              for ns in namespaces:
-                  nsid = str(ns.get('id') or '')
-                  print('DO_NAMESPACE=' + json.dumps({
-                      'id': nsid,
-                      'name': ns.get('name'),
-                      'class': ns.get('class'),
-                      'script': ns.get('script'),
-                      'use_sqlite': ns.get('use_sqlite')
-                  }, sort_keys=True, separators=(',', ':')))
-                  if nsid:
-                      st, obj = get('/workers/durable_objects/namespaces/' + urllib.parse.quote(nsid, safe='') + '/objects?limit=10')
-                      if st == 200 and obj.get('success') is True:
-                          info = obj.get('result_info') or {}
-                          rows = obj.get('result') or []
-                          total = info.get('total_count')
-                          stored = sum(1 for x in rows if isinstance(x, dict) and x.get('hasStoredData') is True)
-                          print('DO_OBJECT_SAMPLE=' + json.dumps({'namespace_id': nsid, 'returned': len(rows), 'sample_with_stored_data': stored, 'total_count': total}, sort_keys=True, separators=(',', ':')))
-                      else:
-                          print('DO_OBJECT_LIST_STATUS=' + str(st) + ' namespace=' + nsid)
+          # Workers Observability query: events only, then locally keep only the broker.
+          # Never print IP addresses, cookies, authorization headers, OAuth query strings, or secret values.
+          start = int(datetime.datetime(2026,8,16,0,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
+          end = int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
+          query = {
+            'queryId':'pulserail-do-incident-audit',
+            'timeframe':{'from':start,'to':end},
+            'view':'events',
+            'limit':2000,
+            'dry':True,
+            'parameters':{'datasets':[]}
+          }
+          st, tele = call('POST','/workers/observability/telemetry/query',query)
+          print('TELEMETRY_STATUS=' + str(st))
+          if st != 200 or tele.get('success') is False:
+              print('TELEMETRY_ERROR=' + errors(tele))
+              raise SystemExit(0)
 
-          # Inspect only binding metadata and deployment timestamps; never print binding values or secrets.
-          for item in scripts:
-              sid = str(item.get('id') or '')
-              if not sid:
+          result = tele.get('result') or {}
+          events = result.get('events') or []
+          print('TELEMETRY_EVENTS_RETURNED=' + str(len(events)))
+          paths = collections.Counter()
+          methods = collections.Counter()
+          uas = collections.Counter()
+          outcomes = collections.Counter()
+          broker_events = 0
+          first_ts = None
+          last_ts = None
+
+          def nested(obj, *keys):
+              cur=obj
+              for k in keys:
+                  if not isinstance(cur,dict): return None
+                  cur=cur.get(k)
+              return cur
+
+          for event in events:
+              if not isinstance(event,dict): continue
+              workers_meta = event.get('$workers') or {}
+              script = workers_meta.get('scriptName')
+              if script != 'pulserail-github-app-broker':
                   continue
-              enc = urllib.parse.quote(sid, safe='')
-              st, settings = get('/workers/scripts/' + enc + '/settings')
-              if st == 200 and settings.get('success') is True:
-                  result = settings.get('result') or {}
-                  bindings = result.get('bindings') or []
-                  dos = []
-                  for b in bindings:
-                      if isinstance(b, dict) and b.get('type') == 'durable_object_namespace':
-                          dos.append({
-                              'name': b.get('name'),
-                              'namespace_id': b.get('namespace_id'),
-                              'class_name': b.get('class_name'),
-                              'script_name': b.get('script_name')
-                          })
-                  if dos:
-                      print('WORKER_DO_BINDINGS=' + sid + ' ' + json.dumps(dos, sort_keys=True, separators=(',', ':')))
-              else:
-                  print('WORKER_SETTINGS_STATUS=' + sid + ':' + str(st))
+              broker_events += 1
+              ts = event.get('timestamp')
+              if isinstance(ts,(int,float)):
+                  first_ts = ts if first_ts is None else min(first_ts,ts)
+                  last_ts = ts if last_ts is None else max(last_ts,ts)
+              outcome = workers_meta.get('outcome')
+              if outcome: outcomes[str(outcome)] += 1
+              ev = workers_meta.get('event') or {}
+              req = ev.get('request') if isinstance(ev,dict) else None
+              if isinstance(req,dict):
+                  method=req.get('method')
+                  if method: methods[str(method)] += 1
+                  url=req.get('url')
+                  if isinstance(url,str):
+                      try: paths[urllib.parse.urlsplit(url).path] += 1
+                      except Exception: paths['<unparseable>'] += 1
+                  headers_obj=req.get('headers')
+                  if isinstance(headers_obj,dict):
+                      ua=headers_obj.get('user-agent') or headers_obj.get('User-Agent')
+                      if isinstance(ua,str): uas[ua[:160]] += 1
 
-              st, deps = get('/workers/scripts/' + enc + '/deployments')
-              if st == 200 and deps.get('success') is True:
-                  result = deps.get('result') or {}
-                  deployments = result.get('deployments') if isinstance(result, dict) else None
-                  if deployments is None and isinstance(result, list):
-                      deployments = result
-                  deployments = deployments or []
-                  for dep in deployments[:3]:
-                      if isinstance(dep, dict):
-                          ann = dep.get('annotations') or {}
-                          print('WORKER_DEPLOYMENT=' + json.dumps({
-                              'worker': sid,
-                              'created_on': dep.get('created_on'),
-                              'source': dep.get('source'),
-                              'triggered_by': ann.get('workers/triggered_by') if isinstance(ann, dict) else None,
-                              'message': ann.get('workers/message') if isinstance(ann, dict) else None
-                          }, sort_keys=True, separators=(',', ':')))
-              else:
-                  print('WORKER_DEPLOYMENTS_STATUS=' + sid + ':' + str(st))
+          print('BROKER_EVENTS_IN_SAMPLE=' + str(broker_events))
+          print('BROKER_PATHS=' + json.dumps(paths.most_common(20),separators=(',',':')))
+          print('BROKER_METHODS=' + json.dumps(methods.most_common(),separators=(',',':')))
+          print('BROKER_OUTCOMES=' + json.dumps(outcomes.most_common(),separators=(',',':')))
+          print('BROKER_USER_AGENTS=' + json.dumps(uas.most_common(10),separators=(',',':')))
+          print('BROKER_SAMPLE_FIRST_TS=' + str(first_ts))
+          print('BROKER_SAMPLE_LAST_TS=' + str(last_ts))
           PY

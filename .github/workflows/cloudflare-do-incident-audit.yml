@@ -21,109 +21,59 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import collections, datetime, json, os, urllib.error, urllib.parse, urllib.request
-
-          token = os.environ.get('CLOUDFLARE_API_TOKEN', '')
-          account = os.environ.get('CLOUDFLARE_ACCOUNT_ID', '')
-          if not token or not account:
-              print('REQUIRED_SECRETS_PRESENT=no')
-              raise SystemExit(10)
-
-          headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
-          root = 'https://api.cloudflare.com/client/v4/accounts/' + urllib.parse.quote(account, safe='')
-
-          def call(method, path, body=None):
-              data = None if body is None else json.dumps(body).encode('utf-8')
-              req = urllib.request.Request(root + path, data=data, headers=headers, method=method)
+          import datetime, json, os, urllib.error, urllib.parse, urllib.request
+          token=os.environ['CLOUDFLARE_API_TOKEN']; account=os.environ['CLOUDFLARE_ACCOUNT_ID']
+          headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'}
+          root='https://api.cloudflare.com/client/v4/accounts/'+urllib.parse.quote(account,safe='')
+          def post(path,body):
+              req=urllib.request.Request(root+path,data=json.dumps(body).encode(),headers=headers,method='POST')
               try:
-                  with urllib.request.urlopen(req, timeout=30) as r:
-                      return r.status, json.load(r)
+                  with urllib.request.urlopen(req,timeout=30) as r: return r.status,json.load(r)
               except urllib.error.HTTPError as e:
-                  try: payload = json.load(e)
-                  except Exception: payload = {'success': False, 'errors': [{'code': e.code, 'message': 'HTTP error'}]}
-                  return e.code, payload
-
-          def errors(data):
-              return '; '.join(str(x.get('code','?')) + ':' + str(x.get('message','')) for x in (data.get('errors') or []) if isinstance(x,dict))[:700]
-
+                  try: return e.code,json.load(e)
+                  except Exception: return e.code,{'errors':[{'message':'HTTP error'}]}
+          start=int(datetime.datetime(2026,8,15,17,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
+          end=int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
+          timeframe={'from':start,'to':end}
           print('AUDIT_MODE=read-only-sanitized')
-          st, workers = call('GET', '/workers/scripts')
-          scripts = [x for x in (workers.get('result') or []) if isinstance(x,dict)] if st == 200 and workers.get('success') is True else []
-          print('WORKERS=' + ','.join(sorted(str(x.get('id')) for x in scripts if x.get('id'))))
 
-          st, ns = call('GET', '/workers/durable_objects/namespaces?per_page=1000')
-          namespaces = [x for x in (ns.get('result') or []) if isinstance(x,dict)] if st == 200 and ns.get('success') is True else []
-          for x in namespaces:
-              print('DO=' + json.dumps({'name':x.get('name'),'class':x.get('class'),'script':x.get('script'),'use_sqlite':x.get('use_sqlite')},sort_keys=True,separators=(',',':')))
+          st,keys=post('/workers/observability/telemetry/keys',{'datasets':[],'timeframe':timeframe})
+          print('KEYS_STATUS='+str(st))
+          if st==200:
+              rows=keys.get('result') or []
+              selected=[]
+              for x in rows:
+                  if not isinstance(x,dict): continue
+                  k=str(x.get('key') or '')
+                  low=k.lower()
+                  if any(word in low for word in ('service','script','trigger','url','path','method','request','useragent','user_agent','user-agent')):
+                      selected.append({'key':k,'type':x.get('type')})
+              print('RELEVANT_KEYS='+json.dumps(selected[:100],sort_keys=True,separators=(',',':')))
+          else:
+              print('KEYS_ERROR='+json.dumps(keys.get('errors') or [],separators=(',',':'))[:1000])
 
-          # Workers Observability query: events only, then locally keep only the broker.
-          # Never print IP addresses, cookies, authorization headers, OAuth query strings, or secret values.
-          start = int(datetime.datetime(2026,8,16,0,0,0,tzinfo=datetime.timezone.utc).timestamp()*1000)
-          end = int(datetime.datetime.now(datetime.timezone.utc).timestamp()*1000)
-          query = {
-            'queryId':'pulserail-do-incident-audit',
-            'timeframe':{'from':start,'to':end},
-            'view':'events',
-            'limit':2000,
-            'dry':True,
-            'parameters':{'datasets':[]}
-          }
-          st, tele = call('POST','/workers/observability/telemetry/query',query)
-          print('TELEMETRY_STATUS=' + str(st))
-          if st != 200 or tele.get('success') is False:
-              print('TELEMETRY_ERROR=' + errors(tele))
-              raise SystemExit(0)
+          def calc(label,group_key,filters=None):
+              body={
+                'queryId':'pulserail-'+label,
+                'timeframe':timeframe,
+                'view':'calculations','limit':100,'dry':True,'ignoreSeries':True,
+                'parameters':{
+                  'datasets':[],
+                  'calculations':[{'operator':'count','alias':'n'}],
+                  'groupBys':[{'type':'string','value':group_key}],
+                  'filters':filters or [],
+                  'orderBy':{'value':'n','order':'desc'}
+                }
+              }
+              st,data=post('/workers/observability/telemetry/query',body)
+              print(label.upper()+'_STATUS='+str(st))
+              if st==200:
+                  result=data.get('result') or {}
+                  print(label.upper()+'_CALCULATIONS='+json.dumps(result.get('calculations') or [],sort_keys=True,separators=(',',':'))[:12000])
+              else:
+                  print(label.upper()+'_ERROR='+json.dumps(data.get('errors') or [],separators=(',',':'))[:1000])
 
-          result = tele.get('result') or {}
-          events = result.get('events') or []
-          print('TELEMETRY_EVENTS_RETURNED=' + str(len(events)))
-          paths = collections.Counter()
-          methods = collections.Counter()
-          uas = collections.Counter()
-          outcomes = collections.Counter()
-          broker_events = 0
-          first_ts = None
-          last_ts = None
-
-          def nested(obj, *keys):
-              cur=obj
-              for k in keys:
-                  if not isinstance(cur,dict): return None
-                  cur=cur.get(k)
-              return cur
-
-          for event in events:
-              if not isinstance(event,dict): continue
-              workers_meta = event.get('$workers') or {}
-              script = workers_meta.get('scriptName')
-              if script != 'pulserail-github-app-broker':
-                  continue
-              broker_events += 1
-              ts = event.get('timestamp')
-              if isinstance(ts,(int,float)):
-                  first_ts = ts if first_ts is None else min(first_ts,ts)
-                  last_ts = ts if last_ts is None else max(last_ts,ts)
-              outcome = workers_meta.get('outcome')
-              if outcome: outcomes[str(outcome)] += 1
-              ev = workers_meta.get('event') or {}
-              req = ev.get('request') if isinstance(ev,dict) else None
-              if isinstance(req,dict):
-                  method=req.get('method')
-                  if method: methods[str(method)] += 1
-                  url=req.get('url')
-                  if isinstance(url,str):
-                      try: paths[urllib.parse.urlsplit(url).path] += 1
-                      except Exception: paths['<unparseable>'] += 1
-                  headers_obj=req.get('headers')
-                  if isinstance(headers_obj,dict):
-                      ua=headers_obj.get('user-agent') or headers_obj.get('User-Agent')
-                      if isinstance(ua,str): uas[ua[:160]] += 1
-
-          print('BROKER_EVENTS_IN_SAMPLE=' + str(broker_events))
-          print('BROKER_PATHS=' + json.dumps(paths.most_common(20),separators=(',',':')))
-          print('BROKER_METHODS=' + json.dumps(methods.most_common(),separators=(',',':')))
-          print('BROKER_OUTCOMES=' + json.dumps(outcomes.most_common(),separators=(',',':')))
-          print('BROKER_USER_AGENTS=' + json.dumps(uas.most_common(10),separators=(',',':')))
-          print('BROKER_SAMPLE_FIRST_TS=' + str(first_ts))
-          print('BROKER_SAMPLE_LAST_TS=' + str(last_ts))
+          calc('by_service','$metadata.service')
+          broker_filter=[{'key':'$metadata.service','operation':'eq','type':'string','value':'pulserail-github-app-broker'}]
+          calc('broker_by_trigger','$metadata.trigger',broker_filter)
           PY
